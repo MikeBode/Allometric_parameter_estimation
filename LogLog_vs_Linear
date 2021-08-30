@@ -1,0 +1,65 @@
+function LogLog_vs_Linear()
+
+% Create power law data
+opt = optimset('display','off');
+dp = 100;
+s = 0.05;
+z = 0.25;
+a = 1;
+
+for reps = 1:1e4
+    x = rand(1,dp);
+    y = a.*x.^z + normrnd(0,s,[1,dp]);
+    
+    log_x = log(x);
+    log_y = log(y);
+    
+    % Fit a linear curve to the log-transformed data
+    p_linearspace(reps,:) = polyfit(log_x,log_y,1);
+    
+    % Fit a power law to the linear space data
+    p_logspace(reps,:) = fmincon(@NL_fit,[z a],[],[],[],[],[0 0],[5 5],[],opt,x,y);
+    
+    if reps == 1
+        figure(1), clf; MS = 12; FS = 14;
+        subplot(3,2,[1 3]), hold on
+        plot(x,y,'.','markersize',MS)
+        xlim([0 1]); ylim([0 1.2])
+        xlabel('Mass (g)','fontsize',FS)
+        ylabel('Fecundity (\# eggs/female)','fontsize',FS)
+        title('Fitting in linear space','fontsize',FS)
+
+        
+        subplot(3,2,[2 4]), hold on
+        plot(log_x,log_y,'.','markersize',MS)
+        xlabel('ln Mass (g)','fontsize',FS)
+        ylabel('ln Fecundity (\# eggs/female)','fontsize',FS)
+        title('Fitting in logarithmic space','fontsize',FS)
+    end
+end
+
+Q_lin = quantile(p_linearspace(:,1),[0.025 0.975]);
+M_lin = mean(p_linearspace(:,1))
+Q_log = quantile(p_logspace(:,1),[0.025 0.975]);
+M_log = mean(p_logspace(:,1));
+
+% Plot summary statistics
+subplot(3,2,[5 6]); hold on; d = 0.2; CL = get(gca,'colororder'); MS = 6;
+
+plot([z z],[0 5],'k:')
+
+plot(Q_lin([1 1 1 1 2 2 2 2]),1+[-d d nan 0 0 nan -d d],'k','linewidth',1.5,'color',CL(4,:))
+plot(M_lin,1,'o','linewidth',0.5,'color',CL(4,:),'markersize',MS)
+
+plot(Q_log([1 1 1 1 2 2 2 2]),2+[-d d nan 0 0 nan -d d],'k','linewidth',1.5,'color',CL(5,:))
+plot(M_log,2,'o','linewidth',0.5,'color',CL(5,:),'markersize',MS)
+
+xlabel('Hyperallometric exponent (z)','fontsize',FS)
+set(gca,'ytick',[1 2],'yticklabel',{'Linear space';'Log space'})
+
+ylim([0 3])
+
+function SSD = NL_fit(p,x,y)
+
+y_p = p(2).*x.^p(1);
+SSD = sum((y-y_p).^2);
